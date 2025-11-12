@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loja de Miniaturas</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Russo+One&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <h1 class="logo">🏎️ MiniCars Store</h1>
+            <div class="nav-links">
+                <a href="cart.html" class="nav-link">🛒 Carrinho (<span id="cartCount">0</span>)</a>
+                <a href="history.html" class="nav-link">📦 Histórico</a>
+                <button id="logoutBtn" class="btn-logout">Sair</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <!-- Admin Panel -->
+        <div id="adminPanel" style="display: none;">
+            <div class="admin-header">
+                <h2 class="section-title">Painel Administrativo</h2>
+                <div class="tab-buttons">
+                    <button onclick="showTab('manage')" class="tab-btn active" id="manageTab">Gerenciar Produtos</button>
+                    <button onclick="showTab('user')" class="tab-btn" id="userTab">Visualizar como Usuário</button>
+                    <button onclick="showTab('dashboard')" class="tab-btn" id="dashboardTab">Dashboard</button>
+                </div>
+            </div>
+
+            <!-- Tab 1: Manage Products -->
+            <div id="manageContent" class="tab-content active">
+                <div class="admin-form-card">
+                    <h3>Cadastrar Novo Produto</h3>
+                    <form id="productForm" enctype="multipart/form-data">
+                        <input type="hidden" id="editProductId">
+                        <div class="form-group">
+                            <label>Nome do Produto</label>
+                            <input type="text" id="productName" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Preço (R$)</label>
+                            <input type="number" id="productPrice" step="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Quantidade em Estoque</label>
+                            <input type="number" id="productQuantity" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select id="productStatus" required>
+                                <option value="1">Ativo</option>
+                                <option value="0">Inativo</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Imagem do Produto</label>
+                            <input type="file" id="productImage" accept="image/*">
+                            <div id="imagePreview" style="margin-top: 10px;"></div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn-primary">Salvar Produto</button>
+                            <button type="button" onclick="cancelEdit()" class="btn-secondary">Cancelar</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="product-list-admin">
+                    <h3>Produtos Cadastrados</h3>
+                    <div id="adminProductList"></div>
+                </div>
+            </div>
+
+            <!-- Tab 2: User View -->
+            <div id="userContent" class="tab-content">
+                <h3>Visualização de Usuário</h3>
+                <div id="userViewGrid" class="product-grid"></div>
+            </div>
+
+            <!-- Tab 3: Dashboard -->
+            <div id="dashboardContent" class="tab-content">
+                <div class="dashboard-container">
+                    <h3 class="dashboard-title">Dashboard Analítico</h3>
+                    <div id="dashboardStats"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Panel (Products Grid) -->
+        <div id="userPanel">
+            <h2 class="section-title">Nossos Produtos</h2>
+            <div id="productGrid" class="product-grid"></div>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+    <script>
+        // Check admin status on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            checkAdminStatus();
+            loadProducts();
+        });
+
+        function showTab(tab) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Show selected tab
+            if (tab === 'manage') {
+                document.getElementById('manageContent').classList.add('active');
+                document.getElementById('manageTab').classList.add('active');
+                loadProducts(); // Reload admin products
+            } else if (tab === 'user') {
+                document.getElementById('userContent').classList.add('active');
+                document.getElementById('userTab').classList.add('active');
+                loadUserView();
+            } else if (tab === 'dashboard') {
+                document.getElementById('dashboardContent').classList.add('active');
+                document.getElementById('dashboardTab').classList.add('active');
+                loadDashboard();
+            }
+        }
+
+        async function loadUserView() {
+            const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+            const response = await fetch('http://localhost:5000/produto', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const produtos = await response.json();
+            
+            const grid = document.getElementById('userViewGrid');
+            grid.innerHTML = produtos.map(p => `
+                <div class="product-card">
+                    <img src="${p.imagem}" alt="${p.nome}">
+                    <h3>${p.nome}</h3>
+                    <p class="price">R$ ${parseFloat(p.preco).toFixed(2)}</p>
+                    <p class="stock">Estoque: ${p.quantidade}</p>
+                    <button class="btn-primary" onclick="addToCart(${p.id})">Adicionar ao Carrinho</button>
+                </div>
+            `).join('');
+        }
+
+        async function loadDashboard() {
+            const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+            const response = await fetch('http://localhost:5000/admin/stats', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await response.json();
+            
+            const container = document.getElementById('dashboardStats');
+            container.innerHTML = `
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-icon">💰</div>
+                        <div class="metric-value">R$ ${parseFloat(data.total_revenue || 0).toFixed(2)}</div>
+                        <div class="metric-label">Receita Total</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-icon">📦</div>
+                        <div class="metric-value">${data.total_orders || 0}</div>
+                        <div class="metric-label">Total de Pedidos</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-icon">👥</div>
+                        <div class="metric-value">${data.unique_customers || 0}</div>
+                        <div class="metric-label">Clientes Únicos</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-icon">💳</div>
+                        <div class="metric-value">R$ ${parseFloat(data.avg_order_value || 0).toFixed(2)}</div>
+                        <div class="metric-label">Ticket Médio</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-icon">📊</div>
+                        <div class="metric-value">${data.total_products || 0}</div>
+                        <div class="metric-label">Total de Produtos</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-icon">✅</div>
+                        <div class="metric-value">${data.active_products || 0}</div>
+                        <div class="metric-label">Produtos Ativos</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-icon">📦</div>
+                        <div class="metric-value">${data.total_stock || 0}</div>
+                        <div class="metric-label">Estoque Total</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-icon">📉</div>
+                        <div class="metric-value">${data.out_of_stock || 0}</div>
+                        <div class="metric-label">Sem Estoque</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-icon">⚠️</div>
+                        <div class="metric-value">${data.low_stock_count || 0}</div>
+                        <div class="metric-label">Estoque Baixo (&lt;10)</div>
+                    </div>
+                </div>
+
+                <div class="dashboard-section">
+                    <h4>Top 5 Produtos Mais Vendidos</h4>
+                    <div class="top-products-list">
+                        ${(data.top_products || []).map(p => `
+                            <div class="top-product-item">
+                                <div class="product-rank">#${p.rank}</div>
+                                <div class="product-info">
+                                    <strong>${p.nome}</strong>
+                                    <span>${p.sold} vendidos (R$ ${parseFloat(p.revenue).toFixed(2)})</span>
+                                </div>
+                            </div>
+                        `).join('') || '<p>Nenhuma venda registrada ainda.</p>'}
+                    </div>
+                </div>
+
+                <div class="dashboard-section">
+                    <h4>Alertas de Estoque Baixo</h4>
+                    <div class="low-stock-list">
+                        ${(data.low_stock || []).length > 0 ? 
+                            data.low_stock.map(p => `
+                                <div class="alert-item">
+                                    <span class="alert-icon">⚠️</span>
+                                    <strong>${p.nome}</strong> - Apenas ${p.quantidade} unidades
+                                </div>
+                            `).join('') :
+                            '<p>Todos os produtos com estoque adequado!</p>'
+                        }
+                    </div>
+                </div>
+
+                <div class="dashboard-section">
+                    <h4>Análise por Produto</h4>
+                    <div class="product-analytics">
+                        ${(data.product_sales || []).map(p => `
+                            <div class="product-analysis-card">
+                                <div class="pa-header">
+                                    <strong>${p.nome}</strong>
+                                    <span class="pa-status ${p.status == 1 ? 'active' : 'inactive'}">
+                                        ${p.status == 1 ? 'Ativo' : 'Inativo'}
+                                    </span>
+                                </div>
+                                <div class="pa-metrics">
+                                    <div class="pa-metric">
+                                        <span class="pa-label">Vendidos</span>
+                                        <span class="pa-value">${p.sold}</span>
+                                    </div>
+                                    <div class="pa-metric">
+                                        <span class="pa-label">Estoque</span>
+                                        <span class="pa-value">${p.stock}</span>
+                                    </div>
+                                    <div class="pa-metric">
+                                        <span class="pa-label">Receita</span>
+                                        <span class="pa-value">R$ ${parseFloat(p.revenue).toFixed(2)}</span>
+                                    </div>
+                                </div>
+                                <div class="pa-progress">
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" style="width: ${p.percentage}%"></div>
+                                    </div>
+                                    <span class="progress-label">${parseFloat(p.percentage).toFixed(1)}% do total de vendas</span>
+                                </div>
+                            </div>
+                        `).join('') || '<p>Nenhum dado de vendas disponível.</p>'}
+                    </div>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

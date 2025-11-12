@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Histórico de Compras - MiniCars Store</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Russo+One&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <h1 class="logo">🏎️ MiniCars Store</h1>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">🏠 Início</a>
+                <a href="cart.html" class="nav-link">🛒 Carrinho</a>
+                <button id="logoutBtn" class="btn-logout">Sair</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="history-container">
+            <h2 class="section-title">Histórico de Compras</h2>
+            
+            <div id="historyItems" class="history-items"></div>
+
+            <div id="emptyHistory" style="display: none; text-align: center; padding: 4rem;">
+                <p style="font-size: 3rem; margin-bottom: 1rem;">📦</p>
+                <h3 style="color: var(--text-secondary); margin-bottom: 1rem;">Nenhuma compra realizada ainda</h3>
+                <a href="index.html" class="btn-primary">Começar a Comprar</a>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_URL = 'http://localhost:5000';
+
+        function getToken() {
+            return sessionStorage.getItem('token') || localStorage.getItem('token');
+        }
+
+        function clearToken() {
+            sessionStorage.removeItem('token');
+            localStorage.removeItem('token');
+        }
+
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            clearToken();
+            window.location.href = 'login.html';
+        });
+
+        async function loadHistory() {
+            const token = getToken();
+            
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/historico`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const orders = await response.json();
+
+                if (orders.length === 0) {
+                    document.getElementById('historyItems').style.display = 'none';
+                    document.getElementById('emptyHistory').style.display = 'block';
+                    return;
+                }
+
+                const historyItems = document.getElementById('historyItems');
+                historyItems.innerHTML = '';
+
+                orders.forEach(order => {
+                    const orderDate = new Date(order.created_at).toLocaleDateString('pt-BR');
+                    
+                    historyItems.innerHTML += `
+                        <div class="card">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                                <div>
+                                    <h3 style="color: var(--text-primary); margin-bottom: 0.5rem;">
+                                        Pedido #${order.id}
+                                    </h3>
+                                    <p style="color: var(--text-secondary); font-size: 0.9rem;">
+                                        Data: ${orderDate}
+                                    </p>
+                                </div>
+                                <div style="text-align: right;">
+                                    <p style="color: var(--accent-color); font-size: 1.5rem; font-weight: 700;">
+                                        R$ ${parseFloat(order.total).toFixed(2)}
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Produto</th>
+                                        <th>Preço Unitário</th>
+                                        <th>Quantidade</th>
+                                        <th>Subtotal</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${order.items.map(item => `
+                                        <tr>
+                                            <td style="color: var(--text-primary);">${item.product_name}</td>
+                                            <td>R$ ${parseFloat(item.unit_price).toFixed(2)}</td>
+                                            <td>${item.quantity}</td>
+                                            <td style="color: var(--accent-color); font-weight: 600;">
+                                                R$ ${parseFloat(item.line_total).toFixed(2)}
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                });
+
+            } catch (error) {
+                console.error('Erro ao carregar histórico:', error);
+                alert('Erro ao carregar histórico de compras!');
+            }
+        }
+
+        // Load history on page load
+        window.addEventListener('DOMContentLoaded', loadHistory);
+    </script>
+</body>
+</html>

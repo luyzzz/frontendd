@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verificação - MiniCars Store</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Russo+One&display=swap" rel="stylesheet">
+</head>
+<body class="auth">
+    <div class="auth-card">
+        <h2>🏎️ Verificação</h2>
+        <p style="color: var(--text-secondary); text-align: center; margin-bottom: 1.5rem;">
+            Digite o código de verificação enviado para seu email
+        </p>
+        <form id="verifyForm">
+            <div class="form-group">
+                <label>Código de Verificação</label>
+                <input type="text" id="code" required>
+            </div>
+            <button type="submit" class="btn-primary" style="width: 100%; margin-top: 1rem;">Verificar</button>
+        </form>
+        <p style="text-align: center; margin-top: 1.5rem; color: var(--text-secondary);">
+            <a href="login.html" style="color: var(--accent-color); text-decoration: none;">Voltar ao login</a>
+        </p>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5000';
+
+        document.getElementById('verifyForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = sessionStorage.getItem('email');
+            const code = document.getElementById('code').value;
+
+            if (!email) {
+                alert('Email não encontrado. Por favor, faça login novamente.');
+                window.location.href = 'login.html';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/verify`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, codigo: code })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert('Conta verificada com sucesso!');
+                    sessionStorage.removeItem('email');
+                    window.location.href = 'login.html';
+                } else {
+                    alert(data.msg || 'Código inválido!');
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                alert('Erro ao verificar código!');
+            }
+        });
+    </script>
+</body>
+</html>

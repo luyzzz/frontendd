@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carrinho - MiniCars Store</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Russo+One&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <h1 class="logo">🏎️ MiniCars Store</h1>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">🏠 Início</a>
+                <a href="history.html" class="nav-link">📦 Histórico</a>
+                <button id="logoutBtn" class="btn-logout">Sair</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="cart-container">
+            <h2 class="section-title">Seu Carrinho</h2>
+            
+            <div id="cartContent">
+                <div class="cart-items" id="cartItems"></div>
+                
+                <div class="cart-summary">
+                    <h3 style="color: var(--text-primary); margin-bottom: 1.5rem;">Resumo do Pedido</h3>
+                    <div class="summary-row">
+                        <span style="color: var(--text-secondary);">Subtotal:</span>
+                        <span id="subtotal" style="color: var(--text-primary); font-weight: 600;">R$ 0,00</span>
+                    </div>
+                    <div class="summary-row" style="border-bottom: none;">
+                        <span style="color: var(--text-primary); font-weight: 700;">Total:</span>
+                        <span id="total" class="summary-total">R$ 0,00</span>
+                    </div>
+                    <button onclick="checkout()" class="btn-primary" style="width: 100%; margin-top: 1rem;">
+                        Finalizar Compra
+                    </button>
+                </div>
+            </div>
+
+            <div id="emptyCart" style="display: none; text-align: center; padding: 4rem;">
+                <p style="font-size: 3rem; margin-bottom: 1rem;">🛒</p>
+                <h3 style="color: var(--text-secondary); margin-bottom: 1rem;">Seu carrinho está vazio</h3>
+                <a href="index.html" class="btn-primary">Continuar Comprando</a>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_URL = 'http://localhost:5000';
+
+        function getToken() {
+            return sessionStorage.getItem('token') || localStorage.getItem('token');
+        }
+
+        function clearToken() {
+            sessionStorage.removeItem('token');
+            localStorage.removeItem('token');
+        }
+
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            clearToken();
+            window.location.href = 'login.html';
+        });
+
+        async function loadCart() {
+            const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+            
+            if (cart.length === 0) {
+                document.getElementById('cartContent').style.display = 'none';
+                document.getElementById('emptyCart').style.display = 'block';
+                return;
+            }
+
+            const token = getToken();
+            const response = await fetch(`${API_URL}/produto`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const products = await response.json();
+
+            let total = 0;
+            const cartItems = document.getElementById('cartItems');
+            cartItems.innerHTML = '';
+
+            cart.forEach(item => {
+                const product = products.find(p => p.id === item.id);
+                if (!product) return;
+
+                const itemTotal = product.preco * item.quantity;
+                total += itemTotal;
+
+                cartItems.innerHTML += `
+                    <div class="cart-item">
+                        <div style="display: flex; align-items: center; gap: 1rem; flex: 1;">
+                            <img src="${product.imagem}" alt="${product.nome}" 
+                                 style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;"
+                                 onerror="this.src='https://via.placeholder.com/80?text=Sem+Imagem'">
+                            <div>
+                                <h3 style="color: var(--text-primary); margin-bottom: 0.5rem;">${product.nome}</h3>
+                                <p style="color: var(--text-secondary);">R$ ${parseFloat(product.preco).toFixed(2)}</p>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <button onclick="updateQuantity(${item.id}, -1)" class="btn-secondary" 
+                                        style="padding: 0.5rem 0.75rem;">-</button>
+                                <span style="color: var(--text-primary); font-weight: 600; min-width: 30px; text-align: center;">
+                                    ${item.quantity}
+                                </span>
+                                <button onclick="updateQuantity(${item.id}, 1)" class="btn-secondary" 
+                                        style="padding: 0.5rem 0.75rem;">+</button>
+                            </div>
+                            <p style="color: var(--accent-color); font-weight: 700; font-size: 1.2rem; min-width: 100px; text-align: right;">
+                                R$ ${itemTotal.toFixed(2)}
+                            </p>
+                            <button onclick="removeFromCart(${item.id})" class="btn-danger" 
+                                    style="padding: 0.5rem 1rem;">🗑️</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            document.getElementById('subtotal').textContent = `R$ ${total.toFixed(2)}`;
+            document.getElementById('total').textContent = `R$ ${total.toFixed(2)}`;
+        }
+
+        function updateQuantity(productId, change) {
+            let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+            const item = cart.find(i => i.id === productId);
+            
+            if (item) {
+                item.quantity += change;
+                if (item.quantity <= 0) {
+                    cart = cart.filter(i => i.id !== productId);
+                }
+            }
+            
+            localStorage.setItem('cart', JSON.stringify(cart));
+            loadCart();
+        }
+
+        function removeFromCart(productId) {
+            let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+            cart = cart.filter(i => i.id !== productId);
+            localStorage.setItem('cart', JSON.stringify(cart));
+            loadCart();
+        }
+
+        async function checkout() {
+            const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+            if (cart.length === 0) {
+                alert('Carrinho vazio!');
+                return;
+            }
+
+            const token = getToken();
+            
+            try {
+                const response = await fetch(`${API_URL}/checkout`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ items: cart })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert('Compra realizada com sucesso!');
+                    localStorage.setItem('cart', '[]');
+                    
+                    // Download PDF if available
+                    if (data.pdf_path) {
+                        window.open(data.pdf_path, '_blank');
+                    }
+                    
+                    window.location.href = 'history.html';
+                } else {
+                    alert(data.msg || 'Erro ao finalizar compra!');
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                alert('Erro ao finalizar compra!');
+            }
+        }
+
+        // Load cart on page load
+        window.addEventListener('DOMContentLoaded', loadCart);
+    </script>
+</body>
+</html>
